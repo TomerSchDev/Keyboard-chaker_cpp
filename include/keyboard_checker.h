@@ -43,7 +43,7 @@ private:
     HHOOK m_keyboardHook; // Keyboard hook handle
     
     // Window class name
-    static constexpr const wchar_t* WINDOW_CLASS_NAME = L"KeyboardCheckerWindow";
+    static constexpr const wchar_t* WINDOW_CLASS_NAME = L"KeyboardChecker";
 
     // Custom window messages
     static const UINT WM_UPDATE_TEXT = WM_USER + 1;    // Message to update text

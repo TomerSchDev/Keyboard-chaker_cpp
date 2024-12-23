@@ -1,3 +1,5 @@
+#define UNICODE
+#define _UNICODE
 #include "../include/keyboard_checker.h"
 
 int main() {

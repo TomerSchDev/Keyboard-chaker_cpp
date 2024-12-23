@@ -73,21 +73,28 @@ namespace Logger
             GetLogFile().flush();
         }
     }
+
+    inline std::wstring ToWString(const char* str) {
+        size_t size = strlen(str) + 1;
+        std::wstring wstr(size, L'\0');
+        size_t convertedChars = 0;
+        mbstowcs_s(&convertedChars, &wstr[0], size, str, _TRUNCATE);
+        wstr.resize(wstr.find(L'\0'));
+        return wstr;
+    }
 }
 
 // Function entry/exit macros
-#define FUNCTION_START                                            \
-    const wchar_t *__function_name = __FUNCTIONW__;              \
-    Logger::LogMessage(__function_name, L"Started", LOG_INF);    \
-    struct LogFunctionExit                                       \
-    {                                                            \
-        const wchar_t *func;                                     \
-        LogFunctionExit(const wchar_t *f) : func(f) {}           \
-        ~LogFunctionExit()                                       \
-        {                                                        \
-            Logger::LogMessage(func, L"Ended", LOG_INF);         \
-        }                                                        \
+#define FUNCTION_START \
+    const std::wstring __function_name = Logger::ToWString(__FUNCTION__); \
+    Logger::LogMessage(__function_name.c_str(), L"Started", LOG_INF); \
+    struct LogFunctionExit { \
+        const std::wstring& func; \
+        LogFunctionExit(const std::wstring& f) : func(f) {} \
+        ~LogFunctionExit() { \
+            Logger::LogMessage(func.c_str(), L"Ended", LOG_INF); \
+        } \
     } __log_exit(__function_name)
 
 // Single logging macro that takes level as first parameter
-#define LOG(level, msg) Logger::LogMessage(__FUNCTIONW__, msg, level)
+#define LOG(level, msg) Logger::LogMessage(Logger::ToWString(__FUNCTION__).c_str(), msg, level)

@@ -1,3 +1,5 @@
+#define UNICODE
+#define _UNICODE
 #include "../include/keyboard_checker.h"
 #include <algorithm>
 #include <sstream>
@@ -39,7 +41,7 @@ void KeyboardChecker::InitializeLayouts() {
     // Store layouts and their names
     for (HKL layout : layouts) {
         wchar_t layoutName[KL_NAMELENGTH];
-        if (GetKeyboardLayoutName(layoutName)) {
+        if (GetKeyboardLayoutNameW(layoutName)) {
             m_availableLayouts.push_back(layout);
             m_layoutNames[layout] = layoutName;
             LOG(LOG_INF, L"Registered layout: " + std::wstring(layoutName));
@@ -51,28 +53,28 @@ bool KeyboardChecker::InitializeWindow() {
     FUNCTION_START;
 
     // Register window class
-    WNDCLASSEX wc = {0};
-    wc.cbSize = sizeof(WNDCLASSEX);
+    WNDCLASSEXW wc = {0};
+    wc.cbSize = sizeof(WNDCLASSEXW);
     wc.lpfnWndProc = WndProc;
-    wc.hInstance = GetModuleHandle(nullptr);
-    wc.lpszClassName = WINDOW_CLASS_NAME;
+    wc.hInstance = GetModuleHandleW(nullptr);
+    wc.lpszClassName = L"KeyboardChecker";
 
-    if (!RegisterClassEx(&wc)) {
+    if (!RegisterClassExW(&wc)) {
         LOG(LOG_ERR, L"Failed to register window class");
         return false;
     }
 
     // Create hidden main window
-    m_mainWindow = CreateWindowEx(
+    m_mainWindow = CreateWindowExW(
         0,
-        WINDOW_CLASS_NAME,
+        L"KeyboardChecker",
         L"Keyboard Checker",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT, CW_USEDEFAULT,
         CW_USEDEFAULT, CW_USEDEFAULT,
         nullptr,
         nullptr,
-        GetModuleHandle(nullptr),
+        GetModuleHandleW(nullptr),
         nullptr
     );
 
@@ -82,10 +84,10 @@ bool KeyboardChecker::InitializeWindow() {
     }
 
     // Install keyboard hook
-    m_keyboardHook = SetWindowsHookEx(
+    m_keyboardHook = SetWindowsHookExW(
         WH_KEYBOARD_LL,
         LowLevelKeyboardProc,
-        GetModuleHandle(nullptr),
+        GetModuleHandleW(nullptr),
         0
     );
 
@@ -115,9 +117,9 @@ void KeyboardChecker::Start() {
 
     // Message loop
     MSG msg;
-    while (GetMessage(&msg, nullptr, 0, 0)) {
+    while (GetMessageW(&msg, nullptr, 0, 0)) {
         TranslateMessage(&msg);
-        DispatchMessage(&msg);
+        DispatchMessageW(&msg);
     }
 }
 
@@ -248,16 +250,16 @@ void KeyboardChecker::UpdatePopup(const std::wstring& currentText,
     // Create or update popup window
     if (!m_popup) {
         // Register popup window class
-        WNDCLASSEX wc = {0};
-        wc.cbSize = sizeof(WNDCLASSEX);
-        wc.lpfnWndProc = DefWindowProc;
-        wc.hInstance = GetModuleHandle(nullptr);
+        WNDCLASSEXW wc = {0};
+        wc.cbSize = sizeof(WNDCLASSEXW);
+        wc.lpfnWndProc = DefWindowProcW;
+        wc.hInstance = GetModuleHandleW(nullptr);
         wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
         wc.lpszClassName = L"KeyboardCheckerPopup";
-        RegisterClassEx(&wc);
+        RegisterClassExW(&wc);
         
         // Create popup window
-        m_popup = CreateWindowEx(
+        m_popup = CreateWindowExW(
             WS_EX_TOPMOST | WS_EX_TOOLWINDOW,
             L"KeyboardCheckerPopup",
             L"Keyboard Checker",
@@ -266,13 +268,13 @@ void KeyboardChecker::UpdatePopup(const std::wstring& currentText,
             300, 200,
             nullptr,
             nullptr,
-            GetModuleHandle(nullptr),
+            GetModuleHandleW(nullptr),
             nullptr
         );
     }
     
     // Show popup
-    SetWindowText(m_popup, ss.str().c_str());
+    SetWindowTextW(m_popup, ss.str().c_str());
     SetWindowPos(m_popup, HWND_TOPMOST,
                 cursorPos.x, cursorPos.y + 20,
                 300, 200,
@@ -288,7 +290,7 @@ LRESULT CALLBACK KeyboardChecker::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LP
                 
                 // Check if text is long enough
                 if (s_instance->m_currentText.length() >= s_instance->m_minTextLength) {
-                    PostMessage(hwnd, WM_CHECK_LAYOUT, 0, 0);
+                    PostMessageW(hwnd, WM_CHECK_LAYOUT, 0, 0);
                 } else if (s_instance->m_popup) {
                     ShowWindow(s_instance->m_popup, SW_HIDE);
                 }
@@ -325,7 +327,7 @@ LRESULT CALLBACK KeyboardChecker::WndProc(HWND hwnd, UINT msg, WPARAM wParam, LP
                 return 0;
         }
     }
-    return DefWindowProc(hwnd, msg, wParam, lParam);
+    return DefWindowProcW(hwnd, msg, wParam, lParam);
 }
 
 LRESULT CALLBACK KeyboardChecker::LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam) {
@@ -347,7 +349,7 @@ LRESULT CALLBACK KeyboardChecker::LowLevelKeyboardProc(int nCode, WPARAM wParam,
                 }
                 
                 // Post message to main window to update
-                PostMessage(s_instance->m_mainWindow, WM_UPDATE_TEXT, 
+                PostMessageW(s_instance->m_mainWindow, WM_UPDATE_TEXT, 
                           0, reinterpret_cast<LPARAM>(s_instance->m_currentText.c_str()));
             }
         }
