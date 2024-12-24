@@ -14,10 +14,26 @@ namespace Logger
     inline std::wofstream &GetLogFile()
     {
         static std::wofstream logFile;
-        if (!logFile.is_open() && LOG_TO_FILE)
+        static bool initialized = false;
+
+        if (!initialized)
         {
+            // Create logs directory if it doesn't exist
             std::filesystem::create_directories(L"logs");
+
+            // Open log file in append mode
             logFile.open(LOG_FILE_PATH, std::ios::app);
+
+            if (logFile.is_open())
+            {
+                // Add session separator
+                logFile << L"\n\n";
+                logFile << L"=====================================\n";
+                logFile << L"=== New Session Started ===\n";
+                logFile << L"=====================================\n\n";
+
+                initialized = true;
+            }
         }
         return logFile;
     }
@@ -74,7 +90,8 @@ namespace Logger
         }
     }
 
-    inline std::wstring ToWString(const char* str) {
+    inline std::wstring ToWString(const char *str)
+    {
         size_t size = strlen(str) + 1;
         std::wstring wstr(size, L'\0');
         size_t convertedChars = 0;
@@ -85,15 +102,17 @@ namespace Logger
 }
 
 // Function entry/exit macros
-#define FUNCTION_START \
+#define FUNCTION_START                                                    \
     const std::wstring __function_name = Logger::ToWString(__FUNCTION__); \
-    Logger::LogMessage(__function_name.c_str(), L"Started", LOG_INF); \
-    struct LogFunctionExit { \
-        const std::wstring& func; \
-        LogFunctionExit(const std::wstring& f) : func(f) {} \
-        ~LogFunctionExit() { \
-            Logger::LogMessage(func.c_str(), L"Ended", LOG_INF); \
-        } \
+    Logger::LogMessage(__function_name.c_str(), L"Started", LOG_INF);     \
+    struct LogFunctionExit                                                \
+    {                                                                     \
+        const std::wstring &func;                                         \
+        LogFunctionExit(const std::wstring &f) : func(f) {}               \
+        ~LogFunctionExit()                                                \
+        {                                                                 \
+            Logger::LogMessage(func.c_str(), L"Ended", LOG_INF);          \
+        }                                                                 \
     } __log_exit(__function_name)
 
 // Single logging macro that takes level as first parameter
