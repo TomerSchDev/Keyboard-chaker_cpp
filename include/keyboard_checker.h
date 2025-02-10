@@ -1,139 +1,105 @@
 #pragma once
 
-#include <Windows.h>
+#include <windows.h>
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include <set>
-#include <algorithm>
 #include "logger.h"
 
-#define WM_TRAYICON (WM_USER + 1)
-#define ID_TRAYICON 1
-#define ID_TRAYMENU_EXIT 1001
+// Constants
+const UINT WM_TRAYICON = WM_USER + 1;
+const UINT ID_TRAYMENU_EXIT = 1001;
 
-union ModifierFlags
-{
-    struct
-    {
-        unsigned char shift : 1;
-        unsigned char ctrl : 1;
-        unsigned char alt : 1;
-        unsigned char win : 1;
-        unsigned char unused : 4;
-    } bits;
-    unsigned char value;
+struct ModifierFlags {
+    bool shift : 1;
+    bool ctrl : 1;
+    bool alt : 1;
 
-    ModifierFlags() : value(0) {}
+    ModifierFlags() : shift(false), ctrl(false), alt(false) {}
 
-    bool operator==(const ModifierFlags& other) const
-    {
-        return value == other.value;
-    }
-
-    // Update flag based on virtual key code
-    void UpdateFromKey(DWORD vkCode, bool isPressed)
-    {
-        switch (vkCode)
-        {
-        case VK_SHIFT:
-        case VK_LSHIFT:
-        case VK_RSHIFT:
-            bits.shift = isPressed ? 1 : 0;
-            break;
-        case VK_CONTROL:
-        case VK_LCONTROL:
-        case VK_RCONTROL:
-            bits.ctrl = isPressed ? 1 : 0;
-            break;
-        case VK_MENU:
-        case VK_LMENU:
-        case VK_RMENU:
-            bits.alt = isPressed ? 1 : 0;
-            break;
-        case VK_LWIN:
-        case VK_RWIN:
-            bits.win = isPressed ? 1 : 0;
-            break;
+    void UpdateFromKey(DWORD vkCode, bool keyDown) {
+        switch (vkCode) {
+            case VK_SHIFT:
+            case VK_LSHIFT:
+            case VK_RSHIFT:
+                shift = keyDown;
+                break;
+            case VK_CONTROL:
+            case VK_LCONTROL:
+            case VK_RCONTROL:
+                ctrl = keyDown;
+                break;
+            case VK_MENU:
+            case VK_LMENU:
+            case VK_RMENU:
+                alt = keyDown;
+                break;
         }
     }
-
-    // Convert to keyboard state array for WinAPI
-    void ToKeyboardState(BYTE keyState[256]) const
-    {
-        if (bits.shift)
-            keyState[VK_SHIFT] = 0x80;
-        if (bits.ctrl)
-            keyState[VK_CONTROL] = 0x80;
-        if (bits.alt)
-            keyState[VK_MENU] = 0x80;
-        if (bits.win)
-            keyState[VK_LWIN] = 0x80;
-    }
 };
 
-struct KeyPressInfo
-{
+struct KeyPressInfo {
     DWORD vkCode;
-    ModifierFlags mods;
+    ModifierFlags modifiers;
 
-    KeyPressInfo(DWORD code) : vkCode(code), mods() {}
-    KeyPressInfo(DWORD code, ModifierFlags modifiers) : vkCode(code), mods(modifiers) {}
+    KeyPressInfo(DWORD code, const ModifierFlags& mods)
+        : vkCode(code), modifiers(mods) {}
 
-    // Equality operator for finding and removing keys
-    bool operator==(const KeyPressInfo &other) const
-    {
-        return vkCode == other.vkCode && mods == other.mods;
+    bool operator==(const KeyPressInfo& other) const {
+        return vkCode == other.vkCode &&
+               modifiers.shift == other.modifiers.shift &&
+               modifiers.ctrl == other.modifiers.ctrl &&
+               modifiers.alt == other.modifiers.alt;
     }
 };
 
-class KeyboardChecker
-{
+class KeyboardChecker {
+protected:
+    KeyboardChecker();
+    
 private:
-    static KeyboardChecker *s_instance;
-    HWND m_mainWindow;
-    HWND m_popup;
-    NOTIFYICONDATA m_trayIcon;
-    bool m_isRunning;
+    static KeyboardChecker* s_instance;
     HHOOK m_keyboardHook;
+    HWND m_hwnd;
+    HWND m_textWindow;
+    HWND m_popup;
+    NOTIFYICONDATA m_notifyIconData;
     std::vector<KeyPressInfo> m_pressedKeys;
-    std::wstring m_currentText;  // Add buffer for current text
+    std::wstring m_currentText;
     size_t m_minTextLength;
     std::vector<HKL> m_availableLayouts;
-    std::unordered_map<HKL, std::wstring> m_layoutNames;
     ModifierFlags m_currentModifiers;
+    bool m_isShiftPressed;
+    bool m_isCtrlPressed;
+    bool m_isAltPressed;
+    bool m_isRunning;
 
-    // Helper functions
-    bool IsValidInLayout(const std::wstring &text, HKL layout);
-    bool InitializeWindow();
-    bool InitializeTrayIcon();
-    void InitializeLayouts();
-    void UpdateText();
+    ~KeyboardChecker();
+    
+    static LRESULT CALLBACK KeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK WndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
+    
     void OnKeyDown(DWORD vkCode);
     void OnKeyUp(DWORD vkCode);
-    std::wstring GetLayoutName(HKL layout);
-    wchar_t GetCharForKey(DWORD vk, HKL layout);
-    std::wstring GetTextFromKeys(const std::vector<KeyPressInfo> &keys, HKL layout);
-    void UpdatePopup(const std::wstring &currentText, const std::unordered_map<HKL, std::wstring> &conversions);
-    void CleanupTrayIcon();
-    void ShowTrayMenu();
-    void CleanupKeyboardHook();
+    void UpdateText(const std::wstring& text);
+    void UpdateModifierState(DWORD vkCode, bool isKeyDown);
     bool IsModifierKey(DWORD vkCode);
-    void UpdateModifierState(DWORD vkCode, bool keyDown);
-    static LRESULT CALLBACK KeyboardHookProc(int nCode, WPARAM wParam, LPARAM lParam);
-    static LRESULT CALLBACK LowLevelKeyboardProc(int nCode, WPARAM wParam, LPARAM lParam);
-    static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam);
+    std::wstring GetTextFromKeys(const std::vector<KeyPressInfo>& keys, HKL layout);
+    wchar_t GetCharForKey(DWORD vkCode, HKL layout);
+    std::wstring GetLayoutName(HKL layout);
+    void ShowTrayMenu();
+    void UpdatePopup(const std::wstring& currentText, const std::unordered_map<HKL, std::wstring>& conversions);
+    void InitializeLayouts();
+    void CleanupKeyboardHook();
+    bool IsValidInLayout(const std::wstring& text, HKL layout);
+    
+    bool InitializeWindow();
 
 public:
-    KeyboardChecker();
-    ~KeyboardChecker();
+    static KeyboardChecker* GetInstance();
+    static void DeleteInstance();
+    
     bool Start();
     void Stop();
-
-    // Custom window messages
-    static const UINT WM_UPDATE_TEXT = WM_USER + 2;
-    static const UINT WM_CHECK_LAYOUT = WM_USER + 3;
-
-    // Window class name
-    static constexpr const wchar_t *WINDOW_CLASS_NAME = L"KeyboardChecker";
 };

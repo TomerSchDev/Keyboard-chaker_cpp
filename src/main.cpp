@@ -1,17 +1,32 @@
 #define UNICODE
 #define _UNICODE
 #include "../include/keyboard_checker.h"
+#include <logger.h>
+#include "keyboard_checker.h"
+#include <windows.h>
 
-int main()
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow)
 {
-    LOG(LOG_INF, L"Started");
-
-    KeyboardChecker checker;
-    if (!checker.Start())
+    KeyboardChecker* checker = KeyboardChecker::GetInstance();
+    if (!checker)
     {
-        LOG(LOG_ERR, L"keyboard checker ended in failure");
+        LOG(ERR, L"Failed to get keyboard checker instance");
         return 1;
     }
-    LOG(LOG_INF, L"Ended");
-    return 0;
+
+    if (!checker->Start())
+    {
+        LOG(ERR, L"keyboard checker ended in failure");
+        return 1;
+    }
+
+    MSG msg;
+    while (GetMessage(&msg, NULL, 0, 0))
+    {
+        TranslateMessage(&msg);
+        DispatchMessage(&msg);
+    }
+
+    KeyboardChecker::DeleteInstance();
+    return (int)msg.wParam;
 }
